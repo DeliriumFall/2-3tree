@@ -25,7 +25,7 @@ class tree {
         bool remove(node* target);
         tree* join(tree* otherTree);
         tree* split(int target);
-        int getHeight(tree* currentTree);
+        int getHeight(node* currentTree);
         void checkTags(node* currentNode);
 };
 

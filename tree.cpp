@@ -268,9 +268,15 @@ bool tree::remove(node* target) {
 }
 
 tree* join(tree* otherTree) {
-    int thisHeight = getHeight(this), otherHeight = getHieight(otherTree);
-    //it this is taller, else inverse process
-    if (getHeight(this) == getHeight(otherTree)) {
+    node* higherNode, lowerNode;
+    int lowerHieght;
+    if (getHeight(this->root) > getHeight(otherTree->root)) {
+        higherNode = this->root;
+        lowerNode = otherTree->root;
+    } else if (getHeight(this->root) < getHeight(otherTree->root)) {
+        lowerNode = this->root;
+        higherNode = otherTree->root;
+    } else {
         node* newRoot = new node();
         if (this->root->tags.second < otherTree->root->tags.first) {
             newRoot->lower = this->root;
@@ -279,14 +285,78 @@ tree* join(tree* otherTree) {
             newRoot->lower = otherTree->root;
             newRoot->middle = this->root;
         }
+        newRoot->lower->parent = newRoot;
+        newRoot->middle->parent = newRoot;
         this->root = newRoot;
+        checkTags(this->root->lower);
         return this;
     }
-    //if diff height, find node with same height and add it there
-    //if overflow -> addSon()
+    lowerHieght = getHeight(lowerNode);
+    while (lowerHeight < getHeight(higherNode)) {
+        if (lowerNode->tags.second <= higherNode->tags.first ) {
+            higherNode = higherNode->lower;
+        } else if (lowerNode->tags.second <= higherNode->tags.second || higherNode->upper == NULL) {
+            higherNode = higherNode->middle;
+        } else {
+            higherNode = higherNode->upper;
+        }
+    }
+    if (isLeaf(higherNode)) {
+        insert(lowerNode->value);
+        return this;
+    }
+    node* parentNode = higherNode->parent;
+    if (parentNode->upper == NULL) {
+        if (lowerNode->tags.second <= parentNode->tags.first ) {
+            parentNode->upper = parentNode->middle;
+            parentNode->middle = parentNode->lower;
+            parentNode->lower = lowerNode;
+            parentNode->lower->parent = parentNode;
+            checkTags(higherNode);
+            return this;
+        } else if (lowerNode->tags.second <= parentNode->tags.second) {
+            parentNode->upper = parentNode->middle;
+            parentNode->middle = lowerNode;
+            parentNode->middle->parent = parentNode;
+            checkTags(higherNode);
+            return this;
+        } else if (lowerNode->tags.second > parentNode->tags.second) {
+            parentNode->upper = lowerNode;
+            parentNode->upper->parent = parentNode;
+            checkTags(higherNode);
+            return this;
+        } else if (parentNode->tags.second <= lowerNode->tags.first ) {
+            parentNode->upper = lowerNode;
+            parentNode->upper->parent = parentNode;
+            checkTags(higherNode);
+            return this;
+        } else if (parentNode->tags.second <= lowerNode->tags.second) {
+            checkTags(higherNode);
+            return this;
+        } else if (lowerNode->tags.second > parentNode->tags.second) {
+            checkTags(higherNode);
+            return this;
+    }
+    if (lowerNode->tags.second <= parentNode->tags.first ) parentNode->overflow = make_pair(0, lowerNode);
+    else if (lowerNode->tags.second <= parentNode->tags.second) parentNode->overflow = make_pair(1, lowerNode);
+    else 
+        if (parentNode->lower == higherNode) currentNode->parent->overflow = make_pair(1,newNode);
+        else if (currentNode->parent->middle == currentNode) currentNode->parent->overflow = make_pair(2,newNode);
+        else currentNode->parent->overflow = make_pair(3, newNode);
+    return addSon(currentNode->parent);
 }
 
-tree* split(int target) {
+tree* tree::split(int target) {
 }
-int getHeight(tree* currentTree);
-void checkTags(node* currentNode);
+
+int tree::getHeight(node* currentNode) {
+    node* place = currentNode;
+    int c=0;
+    while (place->lower != NULL) {
+        place = place->lower;
+        c++;
+    }
+    return c;
+}
+
+void tree::checkTags(node* currentNode);
