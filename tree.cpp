@@ -1,4 +1,5 @@
 #include "tree.h"
+#include <set>
 
 tree::tree() {
     this->node = new node();
@@ -6,23 +7,21 @@ tree::tree() {
     this->node->value = -1;
 }
 
-node* tree::min() {
-    node* curr = this->root;
-    if (curr==NULL) return -1;
-    while (!isLeaf(curr)) {
-        curr = curr->lower;
+node* tree::min(node* fromNode) {
+    if (fromNode==NULL) return NULL;
+    while (!isLeaf(fromNode)) {
+        fromNode = fromNode->lower;
     }
-    return curr;
+    return fromNode;
 }
 
-node* tree::max() {
-    node* curr = this->root;
-    if (curr==NULL) return -1;
-    while (!isLeaf(curr)) {
-        if (curr->upper == NULL) curr = curr->middle;
-        else curr = curr->upper;
+node* tree::max(node* fromNode) {
+    if (fromNode==NULL) return NULL;
+    while (!isLeaf(fromNode)) {
+        if (fromNode->upper == NULL) fromNode = fromNode->middle;
+        else fromNode= fromNode->upper;
     }
-    return curr;
+    return fromNode;
 }
 
 node* tree::search(node* currentNode, int target) {
@@ -267,6 +266,10 @@ bool tree::remove(node* target) {
     return true;
 }
 
+/*
+ * precondition: otherTree is shorter or has the same height as this
+ * postcondition: this includes otherTree in itsel
+ */
 tree* join(tree* otherTree) {
     node* higherNode, lowerNode;
     int lowerHieght;
@@ -274,8 +277,8 @@ tree* join(tree* otherTree) {
         higherNode = this->root;
         lowerNode = otherTree->root;
     } else if (getHeight(this->root) < getHeight(otherTree->root)) {
-        lowerNode = this->root;
-        higherNode = otherTree->root;
+        printf("Cannot be joined\n");
+        return NULL;
     } else {
         node* newRoot = new node();
         if (this->root->tags.second < otherTree->root->tags.first) {
@@ -314,39 +317,48 @@ tree* join(tree* otherTree) {
             parentNode->lower->parent = parentNode;
             checkTags(higherNode);
             return this;
-        } else if (lowerNode->tags.second <= parentNode->tags.second) {
+        } else if (parentNode->tags.second <= lowerNode->tags.first) {
+            parentNode->upper = lowerNode;
+            parentNode->upper->parent = parentNode;
+            checkTags(higherNode);
+            return this;
+        } else {
             parentNode->upper = parentNode->middle;
             parentNode->middle = lowerNode;
             parentNode->middle->parent = parentNode;
             checkTags(higherNode);
             return this;
-        } else if (lowerNode->tags.second > parentNode->tags.second) {
-            parentNode->upper = lowerNode;
-            parentNode->upper->parent = parentNode;
-            checkTags(higherNode);
-            return this;
-        } else if (parentNode->tags.second <= lowerNode->tags.first ) {
-            parentNode->upper = lowerNode;
-            parentNode->upper->parent = parentNode;
-            checkTags(higherNode);
-            return this;
-        } else if (parentNode->tags.second <= lowerNode->tags.second) {
-            checkTags(higherNode);
-            return this;
-        } else if (lowerNode->tags.second > parentNode->tags.second) {
-            checkTags(higherNode);
-            return this;
+        }
     }
     if (lowerNode->tags.second <= parentNode->tags.first ) parentNode->overflow = make_pair(0, lowerNode);
+    else if (parentNode->tags.second <= lowerNode->tags.first ) parentNode->overflow = make_pair(3, lowerNode);
     else if (lowerNode->tags.second <= parentNode->tags.second) parentNode->overflow = make_pair(1, lowerNode);
-    else 
-        if (parentNode->lower == higherNode) currentNode->parent->overflow = make_pair(1,newNode);
-        else if (currentNode->parent->middle == currentNode) currentNode->parent->overflow = make_pair(2,newNode);
-        else currentNode->parent->overflow = make_pair(3, newNode);
-    return addSon(currentNode->parent);
+    else parentNode->overflow = make_pair(2, lowerNode);
+    addSon(currentNode->parent);
+    return this;
 }
 
 tree* tree::split(int target) {
+    set<int> lesserLeaves;
+    node* currentNode = this->root;
+    while (!isLeaf(currentNode->lower)) {
+        if (target <= currentNode->tags.first) currentNode = currentNode->lower;
+        else if (currentNode->upper != NULL && target > currentNode->tags.second) {
+            //getLeaves of mid and low
+            getLeaves(currentNode, &lesserLeaves, 2);
+            currentNode = currentNode->upper;
+        } else {
+            //getLeaves of low
+            getLeaves(currentNode, &lesserLeaves, 1);
+            currentNode = currentNode->middle;
+        }
+    }
+    tree smallTree = new tree();
+    for (set<int>::iterator it=lesserLeaves.begin(); it!=lesserLeaves.end(); ++it) {
+        smallTree.insert(*it);
+        this->remove(*it);
+    }
+    return {smallTree, this};
 }
 
 int tree::getHeight(node* currentNode) {
@@ -359,4 +371,30 @@ int tree::getHeight(node* currentNode) {
     return c;
 }
 
-void tree::checkTags(node* currentNode);
+void tree::checkTags(node* currentNode) {
+    if (currentNode->parent == NULL) return;
+    node* parentNode = currentNode->parent;
+    if (isLeaf(parentNode->lower)) {
+        parentNode->tags = make_pair(parentNode->lower->value, parentNode->middle->value);
+    } else {
+        parentNode->tags = make_pair(max(parentNode->lower)->value, max(parentNode->middle)->value);
+    }
+    checkTags(parentNode);
+}
+
+void tree::getLeaves(node* currentNode, set<int> &leaves, int which) {
+    if (isLeaf(currentNode)) {
+        (*leaves).insert(currentNode->value);
+        return;
+    }
+    if (which == 0) { //all children
+        getLeaves(currentNode->lower, leaves, 0);
+        getLeaves(currentNode->middle, leaves, 0);
+        if (currentNode->upper!=NULL)  getLeaves(currentNode->upper, leaves, 0);
+    } else if (which == 1) { //Only lower
+        getLeaves(currentNode->lower, leaves, 0);
+    } else { //Lower and mid
+        getLeaves(currentNode->lower, leaves, 0);
+        getLeaves(currentNode->middle, leaves, 0);
+    }
+}

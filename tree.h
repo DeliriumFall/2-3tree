@@ -16,8 +16,8 @@ class tree {
         node* root;
 
         tree();
-        node* min();
-        node* max();
+        node* min(node* fromNode);
+        node* max(node* fromNode);
         node* search(int target);
         bool isLeaf(node* targetNode);
         bool insert(int newValue);
@@ -27,6 +27,7 @@ class tree {
         tree* split(int target);
         int getHeight(node* currentTree);
         void checkTags(node* currentNode);
+        void getLeaves(node* currentNode, set<int> &leaves, int which);
 };
 
 #endif
